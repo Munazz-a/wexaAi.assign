@@ -8,7 +8,7 @@ It helps developers explore service dependencies, analyze blast radius, and find
 
 ## Demo
 
-**Live Demo:** https://impactgraph.onrender.com/
+**Live Demo:** [https://impactgraph.onrender.com/](https://impactgraph.onrender.com/)
 
 ---
 
