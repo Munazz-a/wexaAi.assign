@@ -1,147 +1,318 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ImpactGraph — See what breaks before you ship</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"]
-          }
-        }
-      }
-    }
-  </script>
+  <meta name="description" content="ImpactGraph — dependency and blast-radius analysis for software architectures." />
+  <title>ImpactGraph — Architecture impact analysis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
-  <div id="app" class="min-h-screen">
-    <header class="border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-30">
-      <div class="max-w-[1500px] mx-auto px-5 py-4 flex items-center justify-between">
-        <div>
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-400/20 grid place-items-center text-indigo-300 font-bold">IG</div>
-            <div>
-              <h1 class="font-bold tracking-tight">ImpactGraph</h1>
-              <p class="text-xs text-slate-500">See what breaks before you ship.</p>
-            </div>
-          </div>
-        </div>
-        <div id="dbStatus" class="flex items-center gap-2 text-xs text-slate-400">
-          <span class="w-2 h-2 rounded-full bg-slate-600"></span>
-          Checking database...
-        </div>
+<body>
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="brand-mark">IG</div>
+      <div>
+        <div class="brand-name">ImpactGraph</div>
+        <div class="brand-sub">Architecture dependency analysis</div>
       </div>
-    </header>
+    </div>
+    <div class="top-actions">
+      <span id="dbStatus" class="status"><span class="status-dot"></span>Checking database</span>
+      <span class="env-pill">ShopFlow / production</span>
+    </div>
+  </header>
 
-    <main class="max-w-[1500px] mx-auto p-5">
-      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-        <div class="stat-card"><span>Components</span><strong id="statNodes">—</strong></div>
-        <div class="stat-card"><span>Relationships</span><strong id="statRelationships">—</strong></div>
-        <div class="stat-card"><span>Selected</span><strong id="statSelected">None</strong></div>
-        <div class="stat-card"><span>Risk</span><strong id="statRisk">—</strong></div>
-      </section>
+  <main class="app-shell">
+    <section class="toolbar">
+      <div>
+        <div class="eyebrow">SYSTEM MAP</div>
+        <h1>Understand what breaks before you ship.</h1>
+        <p>Explore service dependencies, trace paths, and measure blast radius from one component.</p>
+      </div>
+      <div class="toolbar-actions">
+        <button id="resetBtn" class="button button-secondary">Reset view</button>
+        <button id="impactBtn" class="button button-danger">Analyze impact</button>
+      </div>
+    </section>
 
-      <section class="grid lg:grid-cols-[1fr_360px] gap-5">
-        <div class="panel overflow-hidden">
-          <div class="p-4 border-b border-slate-800 flex flex-wrap gap-3 items-center justify-between">
-            <div>
-              <h2 class="font-semibold">Architecture Graph</h2>
-              <p class="text-xs text-slate-500 mt-1">Click a node to focus its neighborhood.</p>
-            </div>
-            <div class="flex gap-2">
-              <button id="resetBtn" class="btn-secondary">Reset</button>
-              <button id="impactBtn" class="btn-primary">Analyze impact</button>
-            </div>
+    <section class="workspace">
+      <aside class="sidebar left-sidebar">
+        <div class="sidebar-section">
+          <div class="section-heading">
+            <span>Components</span>
+            <span id="componentCount" class="count">—</span>
           </div>
-          <div id="graphWrap" class="relative h-[620px] bg-[radial-gradient(circle_at_center,_rgba(99,102,241,.08),_transparent_48%)]">
-            <div id="graphLoading" class="absolute inset-0 grid place-items-center text-sm text-slate-500">Loading graph...</div>
-            <svg id="graph" class="w-full h-full"></svg>
-          </div>
-          <div class="px-4 py-3 border-t border-slate-800 flex flex-wrap gap-4 text-[11px] text-slate-500">
-            <span><i class="legend-dot bg-indigo-400"></i> Service</span>
-            <span><i class="legend-dot bg-emerald-400"></i> Database</span>
-            <span><i class="legend-dot bg-amber-400"></i> API</span>
-            <span><i class="legend-dot bg-fuchsia-400"></i> Library</span>
-            <span><i class="legend-dot bg-slate-400"></i> Project</span>
+          <div class="search-box">
+            <span class="search-icon">⌕</span>
+            <input id="searchInput" type="search" placeholder="Search components" autocomplete="off" />
+            <kbd>/</kbd>
           </div>
         </div>
 
-        <aside class="space-y-5">
-          <div class="panel p-5">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="text-xs uppercase tracking-widest text-slate-500">Component</p>
-                <h2 id="componentName" class="text-xl font-bold mt-1">Select a node</h2>
-              </div>
-              <span id="componentType" class="badge">—</span>
-            </div>
-            <p id="componentDescription" class="text-sm text-slate-400 mt-4 leading-6">Click any node in the graph to inspect it.</p>
+        <div class="filter-list" id="filterList">
+          <button class="filter active" data-filter="All"><span class="filter-dot all"></span>All <span class="filter-count" id="filterAll">—</span></button>
+          <button class="filter" data-filter="Service"><span class="filter-dot service"></span>Services <span class="filter-count" id="filterService">—</span></button>
+          <button class="filter" data-filter="API"><span class="filter-dot api"></span>APIs <span class="filter-count" id="filterAPI">—</span></button>
+          <button class="filter" data-filter="Database"><span class="filter-dot database"></span>Databases <span class="filter-count" id="filterDatabase">—</span></button>
+          <button class="filter" data-filter="Library"><span class="filter-dot library"></span>Libraries <span class="filter-count" id="filterLibrary">—</span></button>
+          <button class="filter" data-filter="Project"><span class="filter-dot project"></span>Projects <span class="filter-count" id="filterProject">—</span></button>
+        </div>
 
-            <div class="grid grid-cols-2 gap-3 mt-5">
-              <div class="mini-card"><span>Owner</span><strong id="componentOwner">—</strong></div>
-              <div class="mini-card"><span>Blast radius</span><strong id="componentBlast">—</strong></div>
-            </div>
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-section">
+          <div class="section-heading"><span>Graph insights</span></div>
+          <div class="insight-list" id="insightList">
+            <div class="insight-row"><span>Most connected</span><strong>—</strong></div>
+            <div class="insight-row"><span>Selected blast radius</span><strong id="insightBlast">—</strong></div>
+            <div class="insight-row"><span>Relationships</span><strong id="insightRelationships">—</strong></div>
           </div>
+        </div>
 
-          <div class="panel p-5">
-            <div class="flex items-center justify-between">
-              <h3 class="font-semibold">Impact analysis</h3>
-              <span id="impactBadge" class="badge">Ready</span>
-            </div>
-            <div id="impactContent" class="mt-4 text-sm text-slate-500">
-              Select a component and run impact analysis.
-            </div>
+        <div class="sidebar-note">
+          <strong>Tip</strong>
+          <span>Click a node to inspect it. Use <b>Analyze impact</b> to see direct and indirect dependents.</span>
+        </div>
+      </aside>
+
+      <section class="graph-panel">
+        <div class="graph-header">
+          <div>
+            <div class="eyebrow">ARCHITECTURE GRAPH</div>
+            <div id="graphMode" class="graph-mode">Full architecture</div>
           </div>
-
-          <div class="panel p-5">
-            <h3 class="font-semibold">Dependency path</h3>
-            <p class="text-xs text-slate-500 mt-1">Find the shortest relationship path between two components.</p>
-
-            <label class="field-label mt-4">Source</label>
-            <select id="sourceSelect" class="select"></select>
-
-            <label class="field-label mt-3">Target</label>
-            <select id="targetSelect" class="select"></select>
-
-            <button id="pathBtn" class="btn-secondary w-full mt-4">Find path</button>
-            <div id="pathResult" class="mt-4 text-sm"></div>
+          <div class="graph-tools">
+            <button id="zoomOutBtn" class="icon-button" aria-label="Zoom out">−</button>
+            <button id="zoomResetBtn" class="icon-button" aria-label="Reset zoom">1:1</button>
+            <button id="zoomInBtn" class="icon-button" aria-label="Zoom in">+</button>
           </div>
-        </aside>
+        </div>
+        <div id="graphWrap" class="graph-wrap">
+          <div class="graph-grid"></div>
+          <div id="graphLoading" class="graph-state">Loading architecture…</div>
+          <div id="graphEmpty" class="graph-state hidden">No components match this filter.</div>
+          <svg id="graph" aria-label="Interactive architecture graph"></svg>
+          <div class="graph-help"><span>Scroll to zoom</span><span>Drag to reposition</span><span>Click to inspect</span></div>
+        </div>
+        <div class="graph-footer">
+          <div class="legend">
+            <span><i class="legend-dot service"></i>Service</span>
+            <span><i class="legend-dot database"></i>Database</span>
+            <span><i class="legend-dot api"></i>API</span>
+            <span><i class="legend-dot library"></i>Library</span>
+            <span><i class="legend-dot project"></i>Project</span>
+          </div>
+          <div id="graphSummary" class="graph-summary">— components · — relationships</div>
+        </div>
       </section>
-    </main>
-  </div>
 
-  <style>
-    .panel { background: rgba(15,23,42,.72); border: 1px solid rgb(30,41,59); border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
-    .stat-card { background: rgba(15,23,42,.72); border: 1px solid rgb(30,41,59); border-radius: 16px; padding: 16px 18px; display:flex; flex-direction:column; gap:6px; }
-    .stat-card span { color: rgb(100,116,139); font-size: 11px; text-transform:uppercase; letter-spacing:.12em; }
-    .stat-card strong { font-size: 20px; }
-    .btn-primary,.btn-secondary { border-radius: 10px; padding: 9px 13px; font-size: 12px; font-weight:600; transition:.2s; }
-    .btn-primary { background: rgb(99,102,241); color:white; }
-    .btn-primary:hover { background: rgb(79,70,229); }
-    .btn-secondary { background: rgb(30,41,59); color:rgb(203,213,225); border:1px solid rgb(51,65,85); }
-    .btn-secondary:hover { background:rgb(51,65,85); }
-    .badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 8px; background:rgb(30,41,59); color:rgb(148,163,184); font-size:10px; text-transform:uppercase; letter-spacing:.08em; }
-    .mini-card { background:rgb(15,23,42); border:1px solid rgb(30,41,59); border-radius:12px; padding:10px; }
-    .mini-card span { display:block; font-size:10px; color:rgb(100,116,139); text-transform:uppercase; letter-spacing:.08em; }
-    .mini-card strong { display:block; font-size:12px; margin-top:4px; color:rgb(226,232,240); }
-    .field-label { display:block; font-size:10px; color:rgb(100,116,139); text-transform:uppercase; letter-spacing:.1em; margin-bottom:6px; }
-    .select { width:100%; background:rgb(15,23,42); color:rgb(203,213,225); border:1px solid rgb(51,65,85); border-radius:10px; padding:9px; font-size:12px; outline:none; }
-    .legend-dot { display:inline-block; width:7px; height:7px; border-radius:999px; margin-right:5px; }
-    .link { stroke:rgb(71,85,105); stroke-opacity:.65; }
-    .link.impact { stroke:rgb(248,113,113); stroke-opacity:.9; stroke-width:2.5px; }
-    .node { cursor:pointer; }
-    .node circle { stroke:rgb(15,23,42); stroke-width:2.5px; transition:opacity .2s, filter .2s; }
-    .node text { fill:rgb(203,213,225); font-size:10px; pointer-events:none; }
-    .node.dim { opacity:.12; }
-    .node.selected circle { stroke:rgb(255,255,255); stroke-width:3px; filter:drop-shadow(0 0 10px rgba(129,140,248,.8)); }
-    .link.dim { opacity:.05; }
-  </style>
+      <aside class="sidebar right-sidebar">
+        <section class="detail-card">
+          <div class="detail-top">
+            <div>
+              <div class="eyebrow">SELECTED COMPONENT</div>
+              <h2 id="componentName">Select a node</h2>
+            </div>
+            <span id="componentType" class="type-pill">—</span>
+          </div>
+          <p id="componentDescription" class="description">Click any node in the graph to inspect its role in the architecture.</p>
+          <div class="detail-grid">
+            <div class="detail-stat"><span>Owner</span><strong id="componentOwner">—</strong></div>
+            <div class="detail-stat"><span>Blast radius</span><strong id="componentBlast">—</strong></div>
+          </div>
+        </section>
+
+        <section class="detail-card impact-card">
+          <div class="card-heading">
+            <div>
+              <div class="eyebrow">BLAST RADIUS</div>
+              <h3>Impact analysis</h3>
+            </div>
+            <span id="impactBadge" class="risk-pill neutral">READY</span>
+          </div>
+          <div id="impactContent" class="impact-content">
+            <div class="empty-panel">
+              <div class="empty-icon">◎</div>
+              <strong>Nothing analyzed yet</strong>
+              <span>Select a component and run impact analysis to see what depends on it.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-card path-card">
+          <div class="card-heading">
+            <div>
+              <div class="eyebrow">RELATIONSHIP TRACE</div>
+              <h3>Shortest path</h3>
+            </div>
+          </div>
+          <p class="description compact">Find the shortest relationship path between two components.</p>
+          <label class="field-label" for="sourceSelect">Source</label>
+          <select id="sourceSelect" class="select"></select>
+          <label class="field-label" for="targetSelect">Target</label>
+          <select id="targetSelect" class="select"></select>
+          <button id="pathBtn" class="button button-secondary full">Find path</button>
+          <div id="pathResult" class="path-result"></div>
+        </section>
+      </aside>
+    </section>
+
+    <footer class="statusbar">
+      <div><span class="live-dot"></span>Live graph</div>
+      <div><span id="statNodes">—</span> components</div>
+      <div><span id="statRelationships">—</span> relationships</div>
+      <div>Risk <strong id="statRisk">—</strong></div>
+      <div>Powered by CognoDB + openCypher</div>
+    </footer>
+  </main>
+
+  <div id="toast" class="toast" role="status"></div>
+
+<style>
+:root {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --border: #dfe4ec;
+  --border-strong: #cbd2dd;
+  --text: #172033;
+  --muted: #667085;
+  --subtle: #98a2b3;
+  --blue: #315efb;
+  --red: #c75c3c;
+  --green: #18845a;
+  --shadow: 0 8px 24px rgba(16,24,40,.06);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+.hidden { display: none !important; }
+.topbar { height: 68px; background: #fff; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 28px; position:sticky; top:0; z-index:20; }
+.brand-wrap, .top-actions { display:flex; align-items:center; gap:12px; }
+.brand-mark { width:34px; height:34px; border:1px solid #b9c6e8; border-radius:8px; display:grid; place-items:center; color:#315efb; background:#f3f6ff; font-size:12px; font-weight:700; }
+.brand-name { font-size:14px; font-weight:700; letter-spacing:-.01em; }
+.brand-sub { color:var(--subtle); font-size:11px; margin-top:2px; }
+.status { display:flex; align-items:center; gap:7px; color:var(--muted); font-size:11px; }
+.status-dot { width:7px; height:7px; border-radius:50%; background:#98a2b3; display:inline-block; }
+.status-dot.connected { background:#18a66b; box-shadow:0 0 0 3px #e4f7ee; }
+.status-dot.disconnected { background:#d92d20; box-shadow:0 0 0 3px #fde8e7; }
+.env-pill { border:1px solid var(--border); background:#f8fafc; color:#475467; border-radius:999px; padding:6px 9px; font-size:10px; }
+.app-shell { max-width: 1700px; margin:0 auto; padding:22px 24px 16px; }
+.toolbar { display:flex; justify-content:space-between; gap:24px; align-items:flex-end; padding:0 2px 18px; }
+.eyebrow { color:#7b8494; font-size:9px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
+.toolbar h1 { margin:6px 0 5px; font-size:22px; line-height:1.2; letter-spacing:-.035em; }
+.toolbar p { margin:0; color:var(--muted); font-size:12px; }
+.toolbar-actions { display:flex; gap:8px; }
+.button { border-radius:8px; padding:9px 13px; font-size:11px; font-weight:600; border:1px solid transparent; transition:.16s ease; }
+.button-secondary { background:#fff; color:#344054; border-color:var(--border-strong); }
+.button-secondary:hover { border-color:#98a2b3; background:#f9fafb; }
+.button-danger { background:#bd5438; color:#fff; border-color:#bd5438; }
+.button-danger:hover { background:#a94a32; }
+.button.full { width:100%; margin-top:12px; }
+.workspace { min-height:700px; display:grid; grid-template-columns:230px minmax(0,1fr) 330px; background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:var(--shadow); }
+.sidebar { background:#fff; min-width:0; }
+.left-sidebar { border-right:1px solid var(--border); padding:18px 14px; }
+.right-sidebar { border-left:1px solid var(--border); padding:14px; overflow:auto; }
+.sidebar-section { padding:0 2px; }
+.section-heading { display:flex; justify-content:space-between; align-items:center; color:#344054; font-size:11px; font-weight:600; margin-bottom:10px; }
+.count, .filter-count { color:#98a2b3; font-weight:500; font-size:10px; }
+.search-box { height:34px; border:1px solid var(--border); background:#fff; border-radius:7px; display:flex; align-items:center; padding:0 8px; gap:7px; }
+.search-icon { color:#98a2b3; font-size:17px; line-height:1; }
+.search-box input { border:0; outline:0; flex:1; min-width:0; font-size:11px; color:var(--text); background:transparent; }
+.search-box input::placeholder { color:#98a2b3; }
+kbd { color:#98a2b3; border:1px solid var(--border); border-bottom-color:#c8ced8; background:#f8fafc; border-radius:4px; padding:1px 4px; font-size:9px; }
+.filter-list { margin-top:14px; display:grid; gap:2px; }
+.filter { width:100%; border:0; background:transparent; border-radius:6px; color:#667085; text-align:left; display:flex; align-items:center; gap:9px; padding:8px 8px; font-size:11px; }
+.filter:hover { background:#f8fafc; color:#344054; }
+.filter.active { background:#eef3ff; color:#2547b7; font-weight:600; }
+.filter-count { margin-left:auto; }
+.filter-dot, .legend-dot { width:7px; height:7px; border-radius:50%; display:inline-block; flex:0 0 auto; }
+.filter-dot.all { border:1px solid #98a2b3; background:#fff; }
+.service { background:#4f7cff; } .database { background:#22a06b; } .api { background:#d99100; } .library { background:#9b59b6; } .project { background:#667085; }
+.sidebar-divider { height:1px; background:var(--border); margin:18px 2px; }
+.insight-list { display:grid; gap:2px; }
+.insight-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 2px; border-bottom:1px solid #f0f2f5; }
+.insight-row span { color:#667085; font-size:10px; } .insight-row strong { color:#344054; font-size:10px; text-align:right; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sidebar-note { margin:22px 2px 0; padding:10px; background:#f8fafc; border:1px solid #edf0f4; border-radius:7px; display:grid; gap:5px; }
+.sidebar-note strong { font-size:10px; color:#475467; } .sidebar-note span { font-size:10px; color:#7b8494; line-height:1.5; }
+.graph-panel { min-width:0; display:flex; flex-direction:column; }
+.graph-header { height:58px; padding:0 14px 0 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.graph-mode { margin-top:3px; font-size:12px; color:#344054; font-weight:600; }
+.graph-tools { display:flex; gap:4px; }
+.icon-button { width:29px; height:28px; background:#fff; border:1px solid var(--border); border-radius:6px; color:#667085; font-size:12px; }
+.icon-button:hover { background:#f8fafc; color:#344054; }
+.graph-wrap { position:relative; min-height:580px; flex:1; overflow:hidden; background:#fbfcfe; }
+.graph-grid { position:absolute; inset:0; opacity:.7; background-image: radial-gradient(#d9dee7 .7px, transparent .7px); background-size:20px 20px; }
+#graph { position:absolute; inset:0; width:100%; height:100%; }
+.graph-state { position:absolute; inset:0; display:grid; place-items:center; color:#98a2b3; font-size:11px; z-index:2; pointer-events:none; }
+.graph-help { position:absolute; bottom:12px; left:14px; display:flex; gap:10px; color:#98a2b3; font-size:9px; z-index:3; pointer-events:none; }
+.graph-help span + span::before { content:"·"; margin-right:10px; color:#c2c8d1; }
+.graph-footer { min-height:42px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; padding:0 14px; gap:10px; }
+.legend { display:flex; gap:12px; flex-wrap:wrap; color:#7b8494; font-size:9px; }
+.legend span { display:flex; align-items:center; gap:5px; }
+.graph-summary { color:#98a2b3; font-size:9px; }
+.link { stroke:#c5cbd4; stroke-width:1.1px; stroke-opacity:.8; transition:.15s; }
+.link.is-impact { stroke:var(--red); stroke-width:2px; stroke-opacity:1; }
+.link.is-dim { opacity:.13; }
+.link-label { fill:#98a2b3; font-size:7px; text-anchor:middle; pointer-events:none; text-transform:uppercase; letter-spacing:.03em; }
+.link-label.is-dim { opacity:.08; }
+.node { cursor:pointer; transition:opacity .15s; }
+.node-circle { stroke:#fff; stroke-width:2.5px; transition:.15s; }
+.node-halo { stroke:transparent; stroke-width:1.5px; transition:.15s; }
+.node-label { fill:#344054; font-size:10px; font-weight:500; pointer-events:none; }
+.node.is-dim { opacity:.13; }
+.node.is-selected .node-halo { stroke:#315efb; stroke-opacity:.45; r:17; }
+.node.is-selected .node-circle { stroke:#315efb; stroke-width:3px; }
+.node.is-direct .node-circle { stroke:#d99100; stroke-width:3px; }
+.node.is-indirect .node-circle { stroke:#c75c3c; stroke-width:2.5px; }
+.node.is-direct .node-halo { stroke:#d99100; stroke-opacity:.2; }
+.node.is-indirect .node-halo { stroke:#c75c3c; stroke-opacity:.15; }
+.detail-card { border:1px solid var(--border); border-radius:9px; padding:14px; background:#fff; margin-bottom:10px; }
+.detail-top, .card-heading { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+.detail-card h2 { margin:4px 0 0; font-size:17px; letter-spacing:-.02em; }
+.detail-card h3 { margin:4px 0 0; font-size:12px; }
+.description { color:#667085; font-size:10.5px; line-height:1.55; margin:10px 0 0; }
+.description.compact { margin-bottom:12px; }
+.type-pill, .risk-pill { border-radius:999px; padding:4px 7px; font-size:8px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; background:#f2f4f7; color:#667085; }
+.type-pill[data-type="Service"] { background:#eef3ff; color:#315efb; } .type-pill[data-type="Database"] { background:#e8f7f0; color:#18845a; } .type-pill[data-type="API"] { background:#fff6df; color:#9a6500; } .type-pill[data-type="Library"] { background:#f5eafa; color:#7d4398; }
+.risk-pill.low { background:#fff6df; color:#946200; } .risk-pill.medium { background:#fff0e6; color:#b64f25; } .risk-pill.high { background:#fde9e7; color:#b42318; } .risk-pill.minimal { background:#eaf7f1; color:#18794e; }
+.detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:13px; }
+.detail-stat { border:1px solid #edf0f4; background:#fafbfc; border-radius:7px; padding:8px; }
+.detail-stat span { display:block; color:#98a2b3; font-size:8px; text-transform:uppercase; letter-spacing:.08em; } .detail-stat strong { display:block; color:#344054; font-size:11px; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.impact-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-top:12px; }
+.impact-metrics div { background:#fafbfc; border:1px solid #edf0f4; border-radius:7px; padding:8px; } .impact-metrics strong { display:block; font-size:17px; } .impact-metrics span { display:block; color:#98a2b3; font-size:8px; text-transform:uppercase; letter-spacing:.08em; margin-top:2px; }
+.impact-summary { color:#667085; font-size:9.5px; line-height:1.5; padding:10px 0; border-bottom:1px solid #edf0f4; }
+.impact-summary strong { color:#344054; }
+.impact-list { display:grid; gap:4px; margin-top:7px; max-height:180px; overflow:auto; }
+.impact-item { display:grid; grid-template-columns:8px 1fr auto; align-items:center; gap:7px; border:1px solid #edf0f4; background:#fff; border-radius:6px; padding:8px; text-align:left; }
+.impact-item:hover { border-color:#cbd2dd; background:#fafbfc; }
+.impact-dot { width:7px; height:7px; border-radius:50%; } .impact-dot.direct { background:#d99100; } .impact-dot.indirect { background:#c75c3c; }
+.impact-name { color:#344054; font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .hop-count { color:#98a2b3; font-size:9px; }
+.no-results { color:#98a2b3; font-size:9px; padding:8px 0; }
+.empty-panel { min-height:130px; display:grid; place-items:center; align-content:center; text-align:center; gap:5px; color:#98a2b3; }
+.empty-panel strong { color:#667085; font-size:10px; } .empty-panel span { max-width:220px; font-size:9px; line-height:1.5; } .empty-icon { width:30px; height:30px; border:1px solid #dfe4ec; border-radius:50%; display:grid; place-items:center; color:#98a2b3; margin-bottom:2px; }
+.compact-empty { min-height:90px; }
+.field-label { display:block; margin:11px 0 5px; color:#7b8494; font-size:8px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+.select { width:100%; height:33px; border:1px solid var(--border); background:#fff; color:#344054; border-radius:7px; padding:0 9px; font-size:10px; outline:none; }
+.select:focus { border-color:#9db0e8; box-shadow:0 0 0 2px #edf2ff; }
+.path-result { margin-top:8px; }
+.path-message { border:1px solid #edf0f4; background:#fafbfc; border-radius:7px; padding:9px; color:#667085; font-size:9px; line-height:1.5; }
+.path-message.warning { color:#946200; background:#fffaf0; border-color:#f4dfb0; } .path-message.error { color:#b42318; background:#fff6f5; border-color:#f2c7c3; }
+.path-meta { color:#98a2b3; font-size:8px; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+.path-chain { display:flex; flex-wrap:wrap; gap:4px; align-items:center; } .path-chain span { color:#344054; font-weight:500; } .path-chain b { color:#98a2b3; font-weight:400; }
+.statusbar { height:34px; display:flex; align-items:center; gap:18px; color:#98a2b3; font-size:9px; padding:0 3px; }
+.statusbar div { display:flex; gap:5px; align-items:center; } .live-dot { width:6px; height:6px; background:#18a66b; border-radius:50%; }
+.statusbar div:last-child { margin-left:auto; }
+.toast { position:fixed; right:20px; bottom:20px; transform:translateY(12px); opacity:0; pointer-events:none; background:#344054; color:#fff; border-radius:7px; padding:9px 11px; font-size:10px; transition:.18s; z-index:50; box-shadow:0 8px 20px rgba(16,24,40,.15); }
+.toast.visible { opacity:1; transform:translateY(0); } .toast.error { background:#b42318; }
+@media (max-width: 1180px) { .workspace { grid-template-columns:190px minmax(0,1fr); } .right-sidebar { grid-column:1 / -1; border-left:0; border-top:1px solid var(--border); display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; } .detail-card { margin:0; } }
+@media (max-width: 800px) { .topbar { padding:0 14px; } .top-actions .env-pill { display:none; } .app-shell { padding:14px; } .toolbar { align-items:flex-start; flex-direction:column; } .workspace { grid-template-columns:1fr; } .left-sidebar { border-right:0; border-bottom:1px solid var(--border); } .right-sidebar { grid-template-columns:1fr; } .graph-wrap { min-height:520px; } .statusbar div:nth-child(4) { display:none; } .statusbar div:last-child { margin-left:0; } }
+</style>
 
   <script src="/app.js"></script>
 </body>
