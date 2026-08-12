@@ -1,0 +1,16 @@
+{
+  "name": "impactgraph",
+  "version": "1.0.0",
+  "description": "Graph-powered software dependency and blast-radius explorer using CognoDB.",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "neo4j-driver": "^6.0.0"
+  }
+}
