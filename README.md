@@ -8,8 +8,7 @@ It allows developers to explore application architecture, understand component r
 
 ## Demo
 
-- **Live Demo:** `ADD_DEPLOYED_URL_HERE`
-- **GitHub:** `ADD_GITHUB_REPO_URL_HERE`
+- **Live Demo:** https://impactgraph.onrender.com/
 
 ---
 
