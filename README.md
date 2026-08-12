@@ -604,30 +604,20 @@ The application also verifies the graph database connection during startup.
 
 ---
 
+```markdown
 ## Screenshots
 
 ### Architecture Overview
 
-Add your architecture screenshot here:
-
-```markdown
-![ImpactGraph Architecture](screenshots/architecture.png)
-```
+![ImpactGraph Architecture](impactgraph/screenshots/architecture-overview.png)
 
 ### Impact Analysis
 
-Add your PostgreSQL impact-analysis screenshot here:
-
-```markdown
-![Impact Analysis](screenshots/impact-analysis.png)
-```
+![Impact Analysis](impactgraph/screenshots/impact-analysis.png)
 
 ### Dependency Path
 
-Add your shortest-path screenshot here:
-
-```markdown
-![Dependency Path](screenshots/dependency-path.png)
+![Dependency Path](impactgraph/screenshots/dependency-path.png)
 ```
 
 ---
